@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GUS_ // Tung Tung Hook Private Engine</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-color: #030604;
+            --panel-bg: rgba(9, 14, 10, 0.92);
+            --panel-border: #16361c;
+            --neon-green: #00ff41;
+            --neon-green-glow: rgba(0, 255, 65, 0.45);
+            --neon-green-dim: #008021;
+            --neon-cyan: #00f3ff;
+            --dark-card: #070c08;
+            --text-main: #d0f8d8;
+            --text-muted: #5e7e65;
+            --font-head: 'Orbitron', sans-serif;
+            --font-body: 'Rajdhani', sans-serif;
+            --font-code: 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-body);
+            overflow-x: hidden;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* CRT Scanline Overlay */
+        body::before {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+            z-index: 888;
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+        }
+
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #050a06;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--neon-green-dim);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--neon-green);
+        }
+
+        /* Access Modal Overlay */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(3, 6, 4, 0.94);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.6s;
+        }
+
+        #overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .overlay-box {
+            text-align: center;
+            padding: 42px 30px;
+            border: 1px solid var(--panel-border);
+            background: rgba(8, 14, 9, 0.96);
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(0, 255, 65, 0.08);
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+        }
+
+        .overlay-title {
+            font-family: var(--font-head);
+            font-size: 15px;
+            color: var(--neon-green);
+            letter-spacing: 3px;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px var(--neon-green-glow);
+        }
+
+        .btn-juicy {
+            background: transparent;
+            border: 2px solid var(--neon-green);
+            color: var(--neon-green);
+            font-family: var(--font-head);
+            font-size: 16px;
+            font-weight: 700;
+            padding: 16px 36px;
+            letter-spacing: 3px;
+            cursor: pointer;
+            position: relative;
+            outline: none;
+            overflow: hidden;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 15px var(--neon-green-glow);
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-juicy:hover {
+            background: var(--neon-green);
+            color: #000;
+            box-shadow: 0 0 30px var(--neon-green), 0 0 50px rgba(0, 255, 65, 0.3);
+            transform: translateY(-2px) scale(1.02);
+        }
+
+        .btn-juicy:active {
+            transform: translateY(1px) scale(0.97);
+            box-shadow: 0 0 10px var(--neon-green);
+        }
+
+        .overlay-sub {
+            font-family: var(--font-code);
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 20px;
+            letter-spacing: 1px;
+        }
+
+        .wrapper {
+            position: relative;
+            z-index: 10;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 30px 15px;
+        }
+
+        /* Terminal Main Card with Audio Beat Sync Class */
+        .terminal-card {
+            width: 100%;
+            max-width: 940px;
+            background: var(--panel-bg);
+            border: 1px solid var(--neon-green-dim);
+            border-radius: 14px;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.95), 0 0 25px rgba(0, 255, 65, 0.15);
+            backdrop-filter: blur(14px);
+            overflow: hidden;
+            position: relative;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            transform-origin: center center;
+            will-change: transform, box-shadow;
+        }
+
+        .terminal-card:hover {
+            border-color: var(--neon-green);
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.95), 0 0 35px rgba(0, 255, 65, 0.25);
+        }
+
+        .card-header {
+            background: rgba(5, 10, 6, 0.95);
+            padding: 14px 22px;
+            border-bottom: 1px solid var(--panel-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-code);
+            font-size: 12px;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .status-active {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--neon-green);
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 9px;
+            height: 9px;
+            background-color: var(--neon-green);
+            border-radius: 50%;
+            box-shadow: 0 0 12px var(--neon-green);
+            animation: pulse-dot 1.2s infinite ease-in-out alternate;
+        }
+
+        @keyframes pulse-dot {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 16px var(--neon-green); }
+        }
+
+        /* Audio Music Toggle Button in Header */
+        .music-toggle-btn {
+            background: rgba(0, 255, 65, 0.08);
+            border: 1px solid var(--neon-green-dim);
+            color: var(--neon-green);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-family: var(--font-code);
+            font-size: 11px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .music-toggle-btn:hover {
+            background: rgba(0, 255, 65, 0.2);
+            border-color: var(--neon-green);
+            box-shadow: 0 0 12px var(--neon-green-glow);
+        }
+
+        .music-toggle-btn.playing i {
+            animation: music-spin 3s linear infinite;
+        }
+
+        @keyframes music-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .card-body {
+            display: grid;
+            grid-template-columns: 330px 1fr;
+            gap: 0;
+        }
+
+        @media (max-width: 840px) {
+            .card-body {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .profile-sidebar {
+            padding: 32px 24px;
+            border-right: 1px solid var(--panel-border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(4, 8, 5, 0.65);
+        }
+
+        @media (max-width: 840px) {
+            .profile-sidebar {
+                border-right: none;
+                border-bottom: 1px solid var(--panel-border);
+            }
+        }
+
+        /* Avatar with Multi-layer Rotating Rings & Cyber FX */
+        .avatar-container {
+            position: relative;
+            width: 140px;
+            height: 140px;
+            margin-bottom: 22px;
+            cursor: pointer;
+        }
+
+        .avatar-ring-outer {
+            position: absolute;
+            top: -12px; left: -12px; right: -12px; bottom: -12px;
+            border: 1px dashed var(--neon-green);
+            border-radius: 50%;
+            opacity: 0.7;
+            will-change: transform;
+        }
+
+        .avatar-ring-inner {
+            position: absolute;
+            top: -6px; left: -6px; right: -6px; bottom: -6px;
+            border: 2px solid transparent;
+            border-top-color: var(--neon-cyan);
+            border-bottom-color: var(--neon-green);
+            border-radius: 50%;
+            will-change: transform;
+        }
+
+        .avatar-aura {
+            position: absolute;
+            top: -4px; left: -4px; right: -4px; bottom: -4px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,255,65,0.4) 0%, rgba(0,243,255,0.2) 50%, transparent 75%);
+            will-change: transform, opacity;
+        }
+
+        .avatar-img {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--neon-green);
+            box-shadow: 0 0 24px rgba(0, 255, 65, 0.5);
+            background-color: #0d140e;
+            transition: transform 0.3s ease, filter 0.3s ease;
+        }
+
+        .avatar-container:hover .avatar-img {
+            transform: scale(1.05);
+            filter: brightness(1.2) contrast(1.1);
+        }
+
+        .profile-name {
+            font-family: var(--font-head);
+            font-size: 34px;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: 3px;
+            text-shadow: 0 0 12px rgba(0, 255, 65, 0.6);
+            position: relative;
+            display: inline-block;
+            margin-bottom: 14px;
+            animation: violent-shake 1.5s infinite;
+        }
+
+        .profile-name::before, 
+        .profile-name::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+        }
+
+        .profile-name::before {
+            left: 2px;
+            text-shadow: -2px 0 #ff0055;
+            clip: rect(24px, 550px, 90px, 0);
+            animation: glitch-anim-fast 0.25s infinite linear alternate-reverse;
+        }
+
+        .profile-name::after {
+            left: -2px;
+            text-shadow: -2px 0 #00f3ff;
+            clip: rect(85px, 550px, 140px, 0);
+            animation: glitch-anim2-fast 0.3s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-anim-fast {
+            0% { clip: rect(5px, 9999px, 25px, 0); transform: skew(0.3deg); }
+            25% { clip: rect(30px, 9999px, 55px, 0); transform: translate(-2px, 1px); }
+            50% { clip: rect(10px, 9999px, 75px, 0); transform: skew(-0.5deg); }
+            75% { clip: rect(60px, 9999px, 20px, 0); transform: translate(2px, -1px); }
+            100% { clip: rect(40px, 9999px, 85px, 0); transform: skew(0.2deg); }
+        }
+
+        @keyframes glitch-anim2-fast {
+            0% { clip: rect(50px, 9999px, 80px, 0); transform: translate(1px, -1px); }
+            25% { clip: rect(15px, 9999px, 35px, 0); transform: skew(0.4deg); }
+            50% { clip: rect(70px, 9999px, 10px, 0); transform: translate(-1px, 2px); }
+            75% { clip: rect(25px, 9999px, 60px, 0); transform: skew(-0.2deg); }
+            100% { clip: rect(80px, 9999px, 40px, 0); transform: translate(0, 0); }
+        }
+
+        @keyframes violent-shake {
+            0%, 90%, 100% { transform: translate(0, 0); }
+            92% { transform: translate(-2px, 1px); }
+            94% { transform: translate(2px, -1px); }
+            96% { transform: translate(-1px, -2px); }
+            98% { transform: translate(1px, 2px); }
+        }
+
+        .bio-box {
+            width: 100%;
+            background: var(--dark-card);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 22px;
+            text-align: left;
+        }
+
+        .bio-title {
+            font-family: var(--font-code);
+            font-size: 10px;
+            color: var(--neon-green);
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+
+        .bio-text {
+            font-family: var(--font-body);
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-main);
+            line-height: 1.4;
+        }
+
+        .social-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            width: 100%;
+        }
+
+        .social-item {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 44px;
+            background: var(--dark-card);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-size: 18px;
+            text-decoration: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .social-item:hover {
+            color: var(--neon-green);
+            border-color: var(--neon-green);
+            box-shadow: 0 0 15px var(--neon-green-glow);
+            transform: translateY(-3px);
+        }
+
+        .social-item:active {
+            transform: translateY(0);
+        }
+
+        .profile-content {
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .section-label {
+            font-family: var(--font-code);
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-label::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: var(--panel-border);
+        }
+
+        /* Numbered Stats Section (01 & 02 Badges Restored) */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        @media (max-width: 520px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .stat-card {
+            background: var(--dark-card);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 16px;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stat-card:hover {
+            border-color: var(--neon-green-dim);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.08);
+        }
+
+        .stat-number {
+            position: absolute;
+            right: 12px;
+            top: 8px;
+            font-family: var(--font-head);
+            font-size: 38px;
+            font-weight: 900;
+            color: rgba(0, 255, 65, 0.08);
+            line-height: 1;
+            pointer-events: none;
+            transition: color 0.3s ease;
+        }
+
+        .stat-card:hover .stat-number {
+            color: rgba(0, 255, 65, 0.22);
+            text-shadow: 0 0 10px var(--neon-green-glow);
+        }
+
+        .stat-value {
+            font-family: var(--font-head);
+            font-size: 20px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stat-desc {
+            font-family: var(--font-code);
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .yt-video-box {
+            width: 100%;
+            margin-top: 18px;
+            background: var(--dark-card);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .yt-video-box:hover {
+            border-color: var(--neon-green-dim);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
+        }
+
+        .yt-video-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: var(--font-code);
+            font-size: 10px;
+            color: var(--neon-green);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .yt-video-header span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .yt-embed-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            background: #000;
+        }
+
+        .yt-embed-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        .bypassed-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .tag-badge {
+            background: rgba(0, 255, 65, 0.06);
+            border: 1px solid var(--neon-green-dim);
+            color: var(--neon-green);
+            font-family: var(--font-code);
+            font-size: 12px;
+            padding: 6px 14px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .project-card {
+            background: var(--dark-card);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 18px;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .project-card:hover {
+            border-color: var(--neon-green-dim);
+        }
+
+        .project-icon-box {
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid var(--neon-green-dim);
+            border-radius: 6px;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--neon-green);
+        }
+
+        .project-info h4 {
+            font-family: var(--font-head);
+            font-size: 16px;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .project-info p {
+            font-family: var(--font-body);
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .actions-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 5px;
+        }
+
+        .more-btn {
+            width: 100%;
+            background: var(--neon-green);
+            color: #030804;
+            border: none;
+            border-radius: 8px;
+            font-family: var(--font-head);
+            font-size: 15px;
+            font-weight: 900;
+            padding: 14px 20px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 18px rgba(0, 255, 65, 0.3);
+        }
+
+        .more-btn:hover {
+            background: #2eff63;
+            box-shadow: 0 0 28px rgba(0, 255, 65, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .more-btn:active {
+            transform: translateY(1px);
+        }
+
+        #more-icon {
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .accordion-wrapper {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+            background: rgba(6, 10, 7, 0.95);
+            border-top: 0px solid var(--panel-border);
+        }
+
+        .accordion-wrapper.open {
+            grid-template-rows: 1fr;
+            border-top: 1px solid var(--panel-border);
+        }
+
+        .accordion-inner {
+            overflow: hidden;
+        }
+
+        .more-content {
+            padding: 24px 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .vault-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Photo Stash Grid */
+        .photo-stash-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 12px;
+        }
+
+        .photo-card {
+            position: relative;
+            aspect-ratio: 16 / 10;
+            background: var(--dark-card);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .photo-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s ease, filter 0.4s ease;
+        }
+
+        .photo-card:hover {
+            border-color: var(--neon-green);
+            box-shadow: 0 0 15px var(--neon-green-glow);
+        }
+
+        .photo-card:hover img {
+            transform: scale(1.1);
+            filter: brightness(1.15) contrast(1.1);
+        }
+
+        .photo-card .photo-caption {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(3, 6, 4, 0.85);
+            font-family: var(--font-code);
+            font-size: 10px;
+            color: var(--text-main);
+            padding: 4px 8px;
+            text-align: center;
+            border-top: 1px solid var(--panel-border);
+        }
+
+        /* Music Stash Playlist */
+        .music-stash-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .track-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--dark-card);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-family: var(--font-code);
+            font-size: 12px;
+        }
+
+        .track-item:hover {
+            border-color: var(--neon-green);
+            background: rgba(0, 255, 65, 0.05);
+            box-shadow: 0 0 12px rgba(0, 255, 65, 0.1);
+        }
+
+        .track-item.active {
+            border-color: var(--neon-green);
+            background: rgba(0, 255, 65, 0.12);
+            color: var(--neon-green);
+        }
+
+        .track-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .track-icon {
+            color: var(--neon-green);
+            font-size: 14px;
+        }
+
+        .track-title {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .track-item.active .track-title {
+            color: var(--neon-green);
+        }
+
+        .track-badge {
+            font-size: 10px;
+            color: var(--text-muted);
+            border: 1px solid var(--panel-border);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .card-footer {
+            padding: 12px 22px;
+            background: rgba(3, 6, 4, 0.98);
+            border-top: 1px solid var(--panel-border);
+            text-align: center;
+            font-family: var(--font-code);
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        #screamer-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #000;
+            z-index: 999999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        #screamer-overlay.active {
+            display: flex;
+            animation: red-strobe 0.08s infinite alternate, intense-shake 0.05s infinite;
+        }
+
+        #screamer-img {
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            filter: contrast(1.4) brightness(1.2);
+            box-shadow: 0 0 100px #ff0000;
+        }
+
+        @keyframes red-strobe {
+            0% { background-color: #000; }
+            100% { background-color: #3d0000; }
+        }
+
+        @keyframes intense-shake {
+            0% { transform: translate(4px, 4px) rotate(0.5deg); }
+            20% { transform: translate(-4px, -3px) rotate(-0.5deg); }
+            40% { transform: translate(-3px, 4px) rotate(0deg); }
+            60% { transform: translate(3px, 1px) rotate(0.5deg); }
+            80% { transform: translate(1px, -3px) rotate(-0.5deg); }
+            100% { transform: translate(0, 0) rotate(0deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- Original Background Music Track -->
+    <audio id="bg-music" loop preload="auto" crossorigin="anonymous">
+        <source src="https://fine.sunproxy.net/file/NWJNSXk4c3lWTE10ZEw2b2lLQURxQmY5eVYyN0NZekE2c0hwcFh5YzBNSVBaSno1OWZZU1RMclY2ck9DZUM2T1FKQ0VMUVM1WmhKOU10QStFU1k3T0NHVGtjanBDTjlIbEs3NkcraEVxYkk9/Syurpriz_ublyudki_-_Korol_vernulsya_(SkySound.cc).mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- ENTRY OVERLAY -->
+    <div id="overlay">
+        <div class="overlay-box">
+            <div class="overlay-title">SYSTEM AUTHORIZATION REQUIRED</div>
+            <button id="enter-btn" class="btn-juicy">
+                <span>⏣ ACCESS GRANTED</span>
+            </button>
+            <div class="overlay-sub">// CLICK TO INITIALIZE TERMINAL & AUDIO ENGINE</div>
+        </div>
+    </div>
+
+    <div class="wrapper">
+        <div class="terminal-card" id="main-terminal">
+            
+            <!-- Terminal Header -->
+            <div class="card-header">
+                <div class="header-left">
+                    <div class="status-active">
+                        <div class="status-dot"></div>
+                        <span>SYSTEM OPERATIONAL // ENCRYPTED</span>
+                    </div>
+                    <button class="music-toggle-btn" id="music-toggle" title="Toggle Music">
+                        <i class="fa-solid fa-music"></i>
+                        <span id="music-status-text">AUDIO: PLAYING</span>
+                    </button>
+                </div>
+                <div>PROFILE MODULE V3.2</div>
+            </div>
+
+            <!-- Card Content Body -->
+            <div class="card-body">
+                
+                <!-- Left Sidebar Profile -->
+                <div class="profile-sidebar">
+                    <!-- Avatar with Enhanced Multi-ring FX -->
+                    <div class="avatar-container" id="avatar-screamer-trigger" title="Click for unexpected surprise...">
+                        <div class="avatar-ring-outer"></div>
+                        <div class="avatar-ring-inner"></div>
+                        <div class="avatar-aura"></div>
+                        <img src="https://cdn.discordapp.com/attachments/1085822851451453440/1529880894591209482/tungtunghookpr.gif?ex=6a638c1d&is=6a623a9d&hm=2707dd5082401ebfde117e6ecd1cf278f286e33ae3e5cd8a1256acf8a606a943&" 
+                             alt="GUS_" 
+                             class="avatar-img"
+                             onerror="this.src='https://via.placeholder.com/140/0a120b/00ff41?text=GUS_'">
+                    </div>
+
+                    <!-- Fast Glitch Nickname -->
+                    <h1 class="profile-name" data-text="GUS_">GUS_</h1>
+
+                    <!-- ABOUT Section -->
+                    <div class="bio-box">
+                        <div class="bio-title">// ABOUT</div>
+                        <div class="bio-text">
+                            Lua | Luau | RBX studio | Blender
+                        </div>
+                    </div>
+
+                    <!-- Social Links -->
+                    <div class="social-grid">
+                        <a href="https://www.youtube.com/@TungTungHook" target="_blank" class="social-item btn-click" title="YouTube">
+                            <i class="fa-brands fa-youtube"></i>
+                        </a>
+                        <a href="https://discord.com/users/911614576951435294" target="_blank" class="social-item btn-click" title="Discord">
+                            <i class="fa-brands fa-discord"></i>
+                        </a>
+                        <a href="https://t.me/your_telegram" target="_blank" class="social-item btn-click" title="Telegram">
+                            <i class="fa-brands fa-telegram"></i>
+                        </a>
+                        <a href="https://steamcommunity.com/profiles/76561199227866909/" target="_blank" class="social-item btn-click" title="Steam">
+                            <i class="fa-brands fa-steam"></i>
+                        </a>
+                    </div>
+
+                    <div class="yt-video-box">
+                        <div class="yt-video-header">
+                            <span><i class="fa-brands fa-youtube" style="color: #ff0000; font-size: 14px;"></i> YT FEATURED VIDEO</span>
+                            <i class="fa-solid fa-circle-play" style="color: var(--neon-green);"></i>
+                        </div>
+                        <div class="yt-embed-container">
+                            <iframe 
+                                src="https://www.youtube.com/embed/XOMpKTEJ7Jo" 
+                                title="Featured Video" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="profile-content">
+                    
+                    <div>
+                        <div class="section-label">// STATISTICS</div>
+                        <div class="stats-grid">
+                            <!-- Card 01: YouTube Subscribers -->
+                            <div class="stat-card">
+                                <div class="stat-number">01</div>
+                                <div class="stat-value">
+                                    <i class="fa-brands fa-youtube" style="color: var(--neon-green); font-size: 18px;"></i>
+                                    <span id="yt-sub-count">--</span>
+                                </div>
+                                <div class="stat-desc">TTH Subscribers</div>
+                            </div>
+                            
+                            <!-- Card 02: Byfron & TTH Status -->
+                            <div class="stat-card">
+                                <div class="stat-number">02</div>
+                                <div class="stat-value">
+                                    <i class="fa-solid fa-shield-halved" style="color: var(--neon-green); font-size: 18px;"></i>
+                                    <span>Byfron, TTH</span>
+                                </div>
+                                <div class="stat-desc">Founder & Developer</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bypassed Section -->
+                    <div>
+                        <div class="section-label">// BYPASSED</div>
+                        <div class="bypassed-container">
+                            <span class="tag-badge"><i class="fa-solid fa-shield-halved"></i> Fallen</span>
+                            <span class="tag-badge"><i class="fa-solid fa-terminal"></i> Delta</span>
+                            <span class="tag-badge"><i class="fa-solid fa-code-compare"></i> ArmyRP</span>
+                            <span class="tag-badge"><i class="fa-solid fa-shield-virus"></i> VACNET</span>
+                        </div>
+                    </div>
+
+                    <!-- Projects Section -->
+                    <div>
+                        <div class="section-label">// PROJECTS</div>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div class="project-card">
+                                <div class="project-icon-box">
+                                    <i class="fa-solid fa-shield-halved" style="font-size: 18px;"></i>
+                                </div>
+                                <div class="project-info">
+                                    <h4>Tung Tung Hook</h4>
+                                    <p>Private software for Roblox & CS2 & other</p>
+                                </div>
+                            </div>
+
+                            <div class="project-card">
+                                <div class="project-icon-box">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                                        <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                                    </svg>
+                                </div>
+                                <div class="project-info">
+                                    <h4>My project — Christmas.hook</h4>
+                                    <p>We're looking forward to the New Year!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tech Stack Section (Luau Hooking Removed) -->
+                    <div>
+                        <div class="section-label">// TECH STACK</div>
+                        <div class="project-info" style="font-family: var(--font-code); font-size: 13px; color: var(--text-main);">
+                            Roblox / CS2 / VSCode
+                        </div>
+                    </div>
+
+                    <!-- Expand Button -->
+                    <div class="actions-row">
+                        <button id="toggle-more-btn" class="more-btn btn-click">
+                            <span>MORE...</span>
+                            <i class="fa-solid fa-chevron-down" id="more-icon"></i>
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+            <div id="more-accordion" class="accordion-wrapper">
+                <div class="accordion-inner">
+                    <div class="more-content">
+                        <div class="vault-section">
+                            <div class="section-label">// MEDIA VAULT // PHOTO STACK</div>
+                            <div class="photo-stash-grid">
+                                <div class="photo-card btn-click" onclick="window.open('https://cdn.discordapp.com/attachments/1085822851451453440/1529908546865729770/sahur3.png?ex=6a63a5dd&is=6a62545d&hm=1a2b2d31b6ccc3da16e949b7b8f23d0d4036979b6dbc34c55b1a7e05b5565696&', '_blank')">
+                                    <img src="https://cdn.discordapp.com/attachments/1085822851451453440/1529908546865729770/sahur3.png?ex=6a63a5dd&is=6a62545d&hm=1a2b2d31b6ccc3da16e949b7b8f23d0d4036979b6dbc34c55b1a7e05b5565696&" alt="Sahur in Black" onerror="this.src='https://via.placeholder.com/150/0a120b/00ff41?text=Sahur+In+Black'">
+                                    <div class="photo-caption">Sahur in Black</div>
+                                </div>
+                                <div class="photo-card btn-click" onclick="window.open('https://cdn.discordapp.com/attachments/1085822851451453440/1529880894591209482/tungtunghookpr.gif?ex=6a638c1d&is=6a623a9d&hm=2707dd5082401ebfde117e6ecd1cf278f286e33ae3e5cd8a1256acf8a606a943&', '_blank')">
+                                    <img src="https://cdn.discordapp.com/attachments/1085822851451453440/1529880894591209482/tungtunghookpr.gif?ex=6a638c1d&is=6a623a9d&hm=2707dd5082401ebfde117e6ecd1cf278f286e33ae3e5cd8a1256acf8a606a943&" alt="TTH Private User" onerror="this.src='https://via.placeholder.com/150/0a120b/00ff41?text=TTH+Private+User'">
+                                    <div class="photo-caption">TTH Private User</div>
+                                </div>
+                                <div class="photo-card btn-click" onclick="window.open('https://cdn.discordapp.com/attachments/1506126471402623148/1508249500349628528/togif.gif?ex=6a634b8e&is=6a61fa0e&hm=b2782af68629169ee25bb7a9fd9ccc7a3325d367bf3fb4ac37e3413308e6aca0&', '_blank')">
+                                    <img src="https://cdn.discordapp.com/attachments/1506126471402623148/1508249500349628528/togif.gif?ex=6a634b8e&is=6a61fa0e&hm=b2782af68629169ee25bb7a9fd9ccc7a3325d367bf3fb4ac37e3413308e6aca0&" alt="Pure Aura Sahur" onerror="this.src='https://via.placeholder.com/150/0a120b/00ff41?text=Pure+Aura+Sahur'">
+                                    <div class="photo-caption">Pure Aura Sahur</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="vault-section" style="margin-top: 10px;">
+                            <div class="section-label">// MEDIA VAULT // MUSIC STASH</div>
+                            <div class="music-stash-list" id="music-playlist">
+                                <div class="track-item active btn-click" data-src="https://fine.sunproxy.net/file/NWJNSXk4c3lWTE10ZEw2b2lLQURxQmY5eVYyN0NZekE2c0hwcFh5YzBNSVBaSno1OWZZU1RMclY2ck9DZUM2T1FKQ0VMUVM1WmhKOU10QStFU1k3T0NHVGtjanBDTjlIbEs3NkcraEVxYkk9/Syurpriz_ublyudki_-_Korol_vernulsya_(SkySound.cc).mp3" data-volume="0.25">
+                                    <div class="track-info">
+                                        <i class="fa-solid fa-play track-icon"></i>
+                                        <span class="track-title">Сюрприз - Король Вернулся</span>
+                                    </div>
+                                    <span class="track-badge">MAIN THEME</span>
+                                </div>
+
+                                <div class="track-item btn-click" data-src="https://fine.sunproxy.net/file/NWJNSXk4c3lWTE10ZEw2b2lLQURxQmY5eVYyN0NZekE2c0hwcFh5YzBNSlo5cWFKb0RiVm9ydWZ3cHhBbnFLV2hRVE1IeXNGcUpCUVlSdmdMd3RqQklKMXpoMkZGWnF3VXNUNThsQ0tMQVU9/ivycraft_-_lyublyu_moskvu_no_snitsya_london_(SkySound.cc).mp3" data-volume="0.12">
+                                    <div class="track-info">
+                                        <i class="fa-solid fa-play track-icon"></i>
+                                        <span class="track-title">Moskva no snitsa london</span>
+                                    </div>
+                                    <span class="track-badge">TRACK</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="section-label" style="margin-top: 10px;">// SYSTEM LOGS</div>
+                        <div class="log-item">
+                            <span class="log-tag">[v3.2]</span>
+                            <span>Media Vault operational: Photo & Music Stash updated.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-footer">
+                TUNG TUNG HOOK PRIVATE &copy; 2026 // ALL RIGHTS RESERVED BY GUS_
+            </div>
+
+        </div>
+    </div>
+
+    <div id="screamer-overlay">
+        <img src="https://cdn.discordapp.com/attachments/1085822851451453440/1529908546865729770/sahur3.png?ex=6a63a5dd&is=6a62545d&hm=1a2b2d31b6ccc3da16e949b7b8f23d0d4036979b6dbc34c55b1a7e05b5565696&" id="screamer-img" alt="SCREAMER" onerror="this.src='https://i.postimg.cc/13TzWzL6/sahur3.png'">
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // YouTube API Key & Handle fetch logic
+            const YT_API_KEY = "AIzaSyCshWvjdnWaovyaPfsaJUc4vRl6dmIEn4A";
+            const YT_HANDLE = "TungTungHook";
+            const subCountElem = document.getElementById('yt-sub-count');
+
+            async function fetchYouTubeSubscribers() {
+                try {
+                    const url = `https://www.googleapis.com/youtube/v3/channels?part=statistics&forHandle=${YT_HANDLE}&key=${YT_API_KEY}`;
+                    const response = await fetch(url);
+                    const data = await response.json();
+
+                    if (data && data.items && data.items.length > 0) {
+                        const count = data.items[0].statistics.subscriberCount;
+                        subCountElem.textContent = Number(count).toLocaleString();
+                    } else {
+                        subCountElem.textContent = "9";
+                    }
+                } catch(e) {
+                    subCountElem.textContent = "9";
+                }
+            }
+            fetchYouTubeSubscribers();
+
+            // Audio & Bass Beat Reactive Engine
+            const bgMusic = document.getElementById('bg-music');
+            bgMusic.volume = 0.25; // Default volume
+
+            const musicToggleBtn = document.getElementById('music-toggle');
+            const musicStatusText = document.getElementById('music-status-text');
+            const mainTerminalCard = document.getElementById('main-terminal');
+            
+            // Avatar ring elements for beat sync
+            const ringOuter = document.querySelector('.avatar-ring-outer');
+            const ringInner = document.querySelector('.avatar-ring-inner');
+            const avatarAura = document.querySelector('.avatar-aura');
+            let ringOuterAngle = 0;
+            let ringInnerAngle = 0;
+
+            let audioCtx = null;
+            let analyser = null;
+            let dataArray = null;
+            let isAudioConnected = false;
+
+            function setupAudioContext() {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                if (!isAudioConnected && audioCtx) {
+                    try {
+                        const source = audioCtx.createMediaElementSource(bgMusic);
+                        analyser = audioCtx.createAnalyser();
+                        analyser.fftSize = 64;
+                        analyser.smoothingTimeConstant = 0.8;
+                        source.connect(analyser);
+                        analyser.connect(audioCtx.destination);
+                        dataArray = new Uint8Array(analyser.frequencyBinCount);
+                        isAudioConnected = true;
+                    } catch(e) {
+                        isAudioConnected = false;
+                    }
+                }
+            }
+
+            // Realtime Beat Bass smooth pulse loop
+            function startBeatPulse() {
+                function updateBeat() {
+                    requestAnimationFrame(updateBeat);
+
+                    let bassIntensity = 0;
+                    const baseOuterSpeed = 0.35;  // Calm baseline rotation speed for outer ring
+                    const baseInnerSpeed = -0.6; // Calm baseline rotation speed for inner ring
+
+                    let outerSpeed = baseOuterSpeed;
+                    let innerSpeed = baseInnerSpeed;
+
+                    if (!bgMusic.paused) {
+                        if (isAudioConnected && analyser) {
+                            analyser.getByteFrequencyData(dataArray);
+                            let bassSum = 0;
+                            for (let i = 0; i < 8; i++) {
+                                bassSum += dataArray[i];
+                            }
+                            bassIntensity = (bassSum / 8) / 255;
+                        } else {
+                            // Dynamic beat estimation fallback synced directly with audio current timestamp
+                            const time = bgMusic.currentTime * 14;
+                            const kickBeat = Math.pow(Math.max(0, Math.sin(time)), 6);
+                            bassIntensity = kickBeat;
+                        }
+
+                        // Strong speed boost & dynamic reaction on beat drops!
+                        const speedBoost = 1 + (Math.pow(bassIntensity, 1.4) * 3.8);
+                        outerSpeed = baseOuterSpeed * speedBoost;
+                        innerSpeed = baseInnerSpeed * speedBoost;
+
+                        // Stronger visual pulse, ring scaling & glow pops on beat
+                        const scale = 1 + (bassIntensity * 0.035); 
+                        const glowRadius = 25 + (bassIntensity * 40);
+                        const glowOpacity = 0.15 + (bassIntensity * 0.45);
+
+                        mainTerminalCard.style.transform = `scale(${scale.toFixed(4)})`;
+                        mainTerminalCard.style.boxShadow = `0 0 50px rgba(0, 0, 0, 0.95), 0 0 ${glowRadius.toFixed(0)}px rgba(0, 255, 65, ${glowOpacity.toFixed(2)})`;
+
+                        if (ringOuter) {
+                            ringOuter.style.borderColor = bassIntensity > 0.3 ? 'var(--neon-green)' : 'var(--neon-green-dim)';
+                            ringOuter.style.boxShadow = `0 0 ${(bassIntensity * 28).toFixed(0)}px var(--neon-green)`;
+                        }
+                        if (ringInner) {
+                            ringInner.style.borderTopColor = bassIntensity > 0.2 ? '#ffffff' : 'var(--neon-cyan)';
+                            ringInner.style.boxShadow = `0 0 ${(bassIntensity * 22).toFixed(0)}px var(--neon-cyan)`;
+                        }
+                        if (avatarAura) {
+                            avatarAura.style.transform = `scale(${(1 + bassIntensity * 0.25).toFixed(3)})`;
+                            avatarAura.style.opacity = (0.2 + bassIntensity * 0.7).toFixed(2);
+                        }
+                    } else {
+                        // Paused state: calm idle rotation, base box shadow & normal borders
+                        mainTerminalCard.style.transform = 'scale(1)';
+                        mainTerminalCard.style.boxShadow = '0 0 50px rgba(0, 0, 0, 0.95), 0 0 25px rgba(0, 255, 65, 0.15)';
+
+                        if (ringOuter) {
+                            ringOuter.style.borderColor = 'var(--neon-green-dim)';
+                            ringOuter.style.boxShadow = 'none';
+                        }
+                        if (ringInner) {
+                            ringInner.style.borderTopColor = 'var(--neon-cyan)';
+                            ringInner.style.boxShadow = 'none';
+                        }
+                        if (avatarAura) {
+                            avatarAura.style.transform = 'scale(1)';
+                            avatarAura.style.opacity = '0.2';
+                        }
+                    }
+
+                    // Always increment rotation angles smoothly
+                    ringOuterAngle += outerSpeed;
+                    ringInnerAngle += innerSpeed;
+
+                    const ringOuterScale = (!bgMusic.paused && bassIntensity > 0.05) ? (1 + bassIntensity * 0.08) : 1;
+                    const ringInnerScale = (!bgMusic.paused && bassIntensity > 0.05) ? (1 + bassIntensity * 0.05) : 1;
+
+                    if (ringOuter) {
+                        ringOuter.style.transform = `rotate(${ringOuterAngle.toFixed(1)}deg) scale(${ringOuterScale.toFixed(3)})`;
+                    }
+                    if (ringInner) {
+                        ringInner.style.transform = `rotate(${ringInnerAngle.toFixed(1)}deg) scale(${ringInnerScale.toFixed(3)})`;
+                    }
+                }
+                updateBeat();
+            }
+            startBeatPulse();
+
+            // UI click sound effect generator
+            function playJuicyClickSound() {
+                try {
+                    setupAudioContext();
+                    if (!audioCtx) return;
+
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.04);
+
+                    gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.04);
+                } catch(e) {}
+            }
+
+            document.querySelectorAll('button, .btn-click, a, .avatar-container').forEach(elem => {
+                elem.addEventListener('click', () => {
+                    playJuicyClickSound();
+                });
+            });
+
+            // Entry Modal Access Granted Logic
+            const overlay = document.getElementById('overlay');
+            const enterBtn = document.getElementById('enter-btn');
+
+            enterBtn.addEventListener('click', () => {
+                setupAudioContext();
+                overlay.classList.add('hidden');
+                
+                // Play music upon entry
+                bgMusic.play().then(() => {
+                    musicToggleBtn.classList.add('playing');
+                    musicStatusText.textContent = "AUDIO: PLAYING";
+                }).catch(() => {
+                    musicStatusText.textContent = "AUDIO: PAUSED";
+                });
+            });
+
+            // Manual Music Toggle Button
+            musicToggleBtn.addEventListener('click', () => {
+                setupAudioContext();
+                if (bgMusic.paused) {
+                    bgMusic.play();
+                    musicToggleBtn.classList.add('playing');
+                    musicStatusText.textContent = "AUDIO: PLAYING";
+                } else {
+                    bgMusic.pause();
+                    musicToggleBtn.classList.remove('playing');
+                    musicStatusText.textContent = "AUDIO: PAUSED";
+                }
+            });
+
+            const trackItems = document.querySelectorAll('.track-item');
+            trackItems.forEach(track => {
+                track.addEventListener('click', () => {
+                    const newSrc = track.getAttribute('data-src');
+                    const trackVol = parseFloat(track.getAttribute('data-volume') || "0.25");
+                    
+                    trackItems.forEach(t => t.classList.remove('active'));
+                    track.classList.add('active');
+
+                    if (bgMusic.src !== newSrc) {
+                        bgMusic.src = newSrc;
+                        bgMusic.volume = trackVol;
+                        setupAudioContext();
+                        bgMusic.play().then(() => {
+                            musicToggleBtn.classList.add('playing');
+                            musicStatusText.textContent = "AUDIO: PLAYING";
+                        }).catch(e => console.log(e));
+                    }
+                });
+            });
+
+            // Accordion Toggle logic
+            const toggleMoreBtn = document.getElementById('toggle-more-btn');
+            const moreAccordion = document.getElementById('more-accordion');
+            const moreIcon = document.getElementById('more-icon');
+
+            toggleMoreBtn.addEventListener('click', () => {
+                const isOpen = moreAccordion.classList.contains('open');
+
+                if (isOpen) {
+                    moreAccordion.classList.remove('open');
+                    moreIcon.style.transform = 'rotate(0deg)';
+                } else {
+                    moreAccordion.classList.add('open');
+                    moreIcon.style.transform = 'rotate(180deg)';
+                }
+            });
+
+            // Screamer Logic
+            const avatarTrigger = document.getElementById('avatar-screamer-trigger');
+            const screamerOverlay = document.getElementById('screamer-overlay');
+
+            function playLoudScreamerSound() {
+                try {
+                    if (audioCtx) {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(3200, audioCtx.currentTime);
+                        osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 1.2);
+                        gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start();
+                        osc.stop(audioCtx.currentTime + 1.5);
+                    }
+                } catch(e) {}
+            }
+
+            avatarTrigger.addEventListener('click', () => {
+                screamerOverlay.classList.add('active');
+                playLoudScreamerSound();
+
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                }
+            });
+
+            // Click anywhere on screamer overlay to close
+            screamerOverlay.addEventListener('click', () => {
+                screamerOverlay.classList.remove('active');
+                if (document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                }
+            });
+
+            // Matrix Rain Canvas Animation
+            const canvas = document.getElementById('bg-canvas');
+            const ctx = canvas.getContext('2d');
+
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            const chars = '0123456789ABCDEFGHJKLMNPQRSTUVWXYZµ§$#@&TTH';
+            const fontSize = 13;
+            let columns = Math.floor(canvas.width / fontSize);
+            let drops = [];
+
+            for (let i = 0; i < columns; i++) {
+                drops[i] = Math.random() * -100;
+            }
+
+            function drawMatrix() {
+                ctx.fillStyle = 'rgba(3, 6, 4, 0.14)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.font = fontSize + 'px "Fira Code", monospace';
+
+                for (let i = 0; i < drops.length; i++) {
+                    const text = chars.charAt(Math.floor(Math.random() * chars.length));
+                    const x = i * fontSize;
+                    const y = drops[i] * fontSize;
+
+                    if (Math.random() > 0.96) {
+                        ctx.fillStyle = '#ffffff';
+                    } else {
+                        ctx.fillStyle = '#008021';
+                    }
+
+                    ctx.fillText(text, x, y);
+
+                    if (y > canvas.height && Math.random() > 0.975) {
+                        drops[i] = 0;
+                    }
+                    drops[i]++;
+                }
+            }
+
+            setInterval(drawMatrix, 35);
+        });
+    </script>
+</body>
+</html>
